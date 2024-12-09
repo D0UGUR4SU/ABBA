@@ -38,7 +38,12 @@ subfinder -d $1 -all -recursive -silent -o subfinder.txt
 
 chaos -d $1 -key $CHAOS_API_KEY -silent -o chaos.txt 
 
-curl -s "http://crt.sh/?q=%25.$1&output=json" | jq -r '.[].name_value' | sed 's/\*\.//g' | anew cert.txt
+response=$(curl -s "http://crt.sh/?q=%25.$1&output=json")
+if echo "$response" | jq . >/dev/null 2>&1; then
+  echo "$response" | jq -r '.[].name_value' | sed 's/\*\.//g' | anew $OUTPUT_DIR/cert.txt
+else
+  echo -e "${RED}[ERROR]${WHITE} Resposta inválida do crt.sh para a consulta ${RESET}"
+fi
 
 amass enum -passive -norecursive -d $1 -brute -o amass.txt
 
@@ -46,6 +51,8 @@ findomain -t $1 -q | anew findomain.txt
 
 cat *.txt | anew domains
 rm -rf *.txt
+
+
 
 # ENUMERATING HTTP/HTTPS
 echo -e "${GREEN}[+] Enumerating HTTP${RESET}"
@@ -60,6 +67,9 @@ cat domains | httpx -silent -threads 10 -o 200httpx.txt
 #echo "[+] Naabu ports"
 #cat domains | naabu -silent -o ports.txt -top-ports 100
 
+
+
+
 # ENUMERATING API's
 echo -e "${GREEN}[+] Enumerating API's and Specifics Subdomains${RESET}"
 cat 200httpx.txt | grep api | anew api.txt
@@ -73,14 +83,21 @@ cat 200httpx.txt | grep app | anew app.txt
 cat api.txt dev.txt dev1.txt infra.txt prod.txt staging.txt app.txt | anew api_dev.txt
 rm -rf api.txt dev.txt dev1.txt infra.txt prod.txt staging.txt app.txt
 
+
+
+
 #ENUMERATING DIRECTORIES
 echo "${GREEN}[+] Enumerating Directories${RESET}"
 dirsearch -l api_dev.txt -f -r -b -i 200 -e json -t 9000 -w /usr/share/wordlists/data/automated/httparchive_apiroutes_2024_05_28.txt -o dirsearchAPI.txt
 
 
+
+
 # ENUMERATING LINKS
 echo "${GREEN}[+] Enumerating Links${RESET}"
 xargs -a 200httpx.txt -I@ sh -c 'gospider -s "@" -o gospider.txt -c 10 --other-source --js false --sitemap -q'
+
+
 
 
 # ENUMERATING VULNERABILITES
